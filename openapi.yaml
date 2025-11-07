@@ -1,0 +1,1238 @@
+openapi: 3.0.3
+info:
+  title: PAT_PAT API
+  description: |
+    PAT_PAT 프로젝트의 REST API 명세서입니다.
+
+    일기(diary), 감정(emotion), 별자리(constellation), 태그(tag) 등의 데이터를 관리하며,
+    사용자 인증(OTP, 비밀번호 설정 등)을 지원합니다.
+
+    ## 응답 포맷
+    모든 API는 표준화된 응답 포맷을 사용합니다:
+    - 성공: `{ ok: true, data, meta?, requestId? }`
+    - 실패: `{ ok: false, code, message, details?, requestId? }`
+
+    ## 데이터베이스 구조
+    이 API는 다음 주요 테이블들을 사용합니다:
+
+    **사용자 관련:**
+    - `users` - 사용자 기본 정보
+    - `user_profile` - 프로필 (닉네임 등)
+    - `user_identity` - 소셜 로그인 연동
+
+    **일기 관련:**
+    - `diary` - 일기 본문
+    - `diary_emotion` - 일기-감정 연결 (다대다, intensity/order_no 포함)
+    - `diary_tag` - 일기-태그 연결 (다대다)
+    - `diary_star` - 일기-별 연결
+
+    **마스터 데이터:**
+    - `emotion` - 감정 목록
+    - `tag` - 태그 목록
+    - `constellation` - 별자리 정보 (JSON 필드 포함)
+    - `constellation_star` - 개별 별 좌표
+    - `constellation_edge` - 별자리 연결선
+
+    상세한 스키마는 하단 Components 섹션의 "데이터베이스 테이블 스키마" 참고
+
+  version: 0.1.0
+  contact:
+    name: PAT_PAT Development Team
+
+servers:
+  - url: http://localhost:3000
+    description: 로컬 개발 서버
+  - url: https://api.patpat.com
+    description: 프로덕션 서버
+
+tags:
+  - name: Authentication
+    description: 사용자 인증 관련 API (로그아웃, OTP, 회원가입)
+  - name: Diary
+    description: 일기 관련 API (조회, 생성, 수정, 삭제)
+  - name: Constellation
+    description: 별자리 정보 조회 API
+  - name: Emotion
+    description: 감정 목록 조회 API
+  - name: Star
+    description: 별자리 템플릿 데이터 API (좌표, 경로 정보)
+  - name: Tag
+    description: 태그 목록 조회 API
+
+paths:
+  /api/auth/signout:
+    post:
+      tags:
+        - Authentication
+      summary: 로그아웃 (POST)
+      description: |
+        사용자 세션을 종료하고 지정된 페이지로 리디렉션합니다.
+        세션 토큰과 리프레시 토큰이 무효화됩니다.
+      operationId: signoutPost
+      parameters:
+        - name: next
+          in: query
+          description: 로그아웃 후 리디렉션할 URL
+          required: false
+          schema:
+            type: string
+            default: /lumi/auth/signin
+            example: /lumi/auth/signin
+      responses:
+        "303":
+          description: 로그아웃 성공 후 리디렉션
+          headers:
+            Location:
+              description: 리디렉션 대상 URL
+              schema:
+                type: string
+
+    get:
+      tags:
+        - Authentication
+      summary: 로그아웃 (GET)
+      description: 브라우저에서 직접 접근할 수 있는 로그아웃 엔드포인트
+      operationId: signoutGet
+      parameters:
+        - name: next
+          in: query
+          description: 로그아웃 후 리디렉션할 URL
+          required: false
+          schema:
+            type: string
+      responses:
+        "303":
+          description: 로그아웃 성공 후 리디렉션
+
+  /lumi/auth/otp/send:
+    post:
+      tags:
+        - Authentication
+      summary: OTP 발송
+      description: 이메일로 일회용 인증 코드(OTP)를 발송합니다.
+      operationId: sendOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: OTP를 받을 이메일 주소
+                  example: user@example.com
+      responses:
+        "200":
+          description: OTP 발송 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: OTP가 발송되었습니다
+        "400":
+          description: 잘못된 이메일 형식
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+              example:
+                ok: false
+                message: 올바른 이메일을 입력해주세요.
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+
+  /lumi/auth/otp/verify:
+    post:
+      tags:
+        - Authentication
+      summary: OTP 검증
+      description: 이메일로 받은 OTP 코드를 검증합니다.
+      operationId: verifyOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - token
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: OTP를 받은 이메일 주소
+                  example: user@example.com
+                token:
+                  type: string
+                  description: 6자리 인증 코드
+                  example: "123456"
+      responses:
+        "200":
+          description: OTP 검증 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+        "400":
+          description: 이메일 또는 토큰 누락
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+
+  /lumi/auth/nickname/check:
+    post:
+      tags:
+        - Authentication
+      summary: 닉네임 중복 확인
+      description: 닉네임 사용 가능 여부를 확인합니다.
+      operationId: checkNickname
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nickname
+              properties:
+                nickname:
+                  type: string
+                  minLength: 2
+                  description: 확인할 닉네임 (최소 2자)
+                  example: 사용자123
+      responses:
+        "200":
+          description: 닉네임 확인 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  available:
+                    type: boolean
+                    description: 사용 가능 여부
+                  message:
+                    type: string
+              examples:
+                available:
+                  summary: 사용 가능한 닉네임
+                  value:
+                    ok: true
+                    available: true
+                    message: 사용 가능한 닉네임입니다.
+                unavailable:
+                  summary: 이미 사용 중인 닉네임
+                  value:
+                    ok: false
+                    available: false
+                    message: 이미 사용 중인 닉네임입니다.
+        "400":
+          description: 닉네임이 2자 미만
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+
+  /lumi/auth/password/set:
+    post:
+      tags:
+        - Authentication
+      summary: 비밀번호 및 닉네임 설정 (회원가입 완료)
+      description: |
+        OTP 인증 후 비밀번호와 닉네임을 설정하여 회원가입을 완료합니다.
+        이 API는 인증된 세션이 필요합니다.
+      operationId: setPassword
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+                - nickname
+              properties:
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  description: 설정할 비밀번호 (최소 8자)
+                  example: mypassword123
+                nickname:
+                  type: string
+                  minLength: 2
+                  description: 사용자 닉네임 (최소 2자)
+                  example: 사용자123
+      responses:
+        "200":
+          description: 회원가입 완료
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 회원가입이 완료되었습니다.
+                  debug:
+                    type: object
+                    description: 디버그 정보 (프로필 저장 결과)
+        "400":
+          description: 비밀번호 또는 닉네임 유효성 검증 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+        "401":
+          description: 인증되지 않은 사용자
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleErrorResponse"
+
+  /api/diary:
+    get:
+      tags:
+        - Diary
+      summary: 일기 목록 조회
+      description: |
+        페이지네이션을 지원하는 일기 목록을 조회합니다.
+        타입(star/worry), 날짜 범위로 필터링이 가능합니다.
+      operationId: getDiaries
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: 페이지 번호 (1부터 시작)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: 페이지당 항목 수 (최소 1, 최대 50)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+            example: 10
+        - name: type
+          in: query
+          description: 일기 타입 필터
+          required: false
+          schema:
+            type: string
+            enum:
+              - star
+              - worry
+            example: star
+        - name: from
+          in: query
+          description: 시작 날짜 (YYYY-MM-DD 형식)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2024-01-01"
+        - name: to
+          in: query
+          description: 종료 날짜 (YYYY-MM-DD 형식)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2024-12-31"
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Diary"
+                      meta:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                            example: 1
+                          limit:
+                            type: integer
+                            example: 10
+                          total:
+                            type: integer
+                            example: 42
+        "401":
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+  /api/constellation:
+    get:
+      tags:
+        - Constellation
+      summary: 별자리 목록 조회
+      description: 데이터베이스에 저장된 모든 별자리 정보를 조회합니다.
+      operationId: getConstellations
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Constellation"
+                      meta:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                            example: 12
+        "404":
+          description: 별자리 데이터 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                ok: false
+                code: NOT_FOUND
+                message: No constellation found
+                requestId: 1699328400000-a1b2c3d4
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+  /api/emotion:
+    get:
+      tags:
+        - Emotion
+      summary: 감정 목록 조회
+      description: |
+        사용 가능한 모든 감정 타입을 조회합니다.
+        (emotion_id는 응답에서 제외됩니다)
+      operationId: getEmotions
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Emotion"
+                      meta:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                            example: 10
+        "404":
+          description: 감정 데이터 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+  /api/star:
+    get:
+      tags:
+        - Star
+      summary: 별자리 템플릿 데이터 조회
+      description: |
+        12가지 별자리의 좌표 정보와 경로 데이터를 조회합니다.
+        인증이 필요하지 않은 공개 API입니다.
+      operationId: getStarTemplates
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StarTemplate"
+
+  /api/tag:
+    get:
+      tags:
+        - Tag
+      summary: 태그 목록 조회
+      description: |
+        사용 가능한 모든 태그를 조회합니다.
+        (id 필드는 응답에서 제외됩니다)
+      operationId: getTags
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Tag"
+                      meta:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                            example: 20
+        "404":
+          description: 태그 데이터 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sb-access-token
+      description: Supabase 인증 쿠키 (자동으로 포함됨)
+
+  schemas:
+    ApiSuccessResponse:
+      type: object
+      required:
+        - ok
+        - data
+      properties:
+        ok:
+          type: boolean
+          example: true
+          description: 요청 성공 여부
+        data:
+          type: object
+          description: 응답 데이터
+        meta:
+          type: object
+          description: 메타데이터 (페이지네이션, 카운트 등)
+        requestId:
+          type: string
+          description: 요청 추적을 위한 고유 ID
+          example: 1699328400000-a1b2c3d4e5f6
+
+    ApiErrorResponse:
+      type: object
+      required:
+        - ok
+        - code
+        - message
+      properties:
+        ok:
+          type: boolean
+          example: false
+          description: 요청 실패 여부
+        code:
+          type: string
+          description: 표준 에러 코드
+          enum:
+            - AUTH_UNAUTHORIZED
+            - AUTH_FORBIDDEN
+            - VALIDATION_ERROR
+            - NOT_FOUND
+            - CONFLICT
+            - RATE_LIMITED
+            - DB_ERROR
+            - INTERNAL_ERROR
+          example: NOT_FOUND
+        message:
+          type: string
+          description: 사용자에게 표시할 에러 메시지
+          example: 리소스를 찾을 수 없습니다
+        details:
+          type: object
+          description: 추가 에러 정보 (디버깅용)
+        requestId:
+          type: string
+          description: 요청 추적 ID
+          example: 1699328400000-a1b2c3d4
+
+    SimpleErrorResponse:
+      type: object
+      required:
+        - ok
+        - message
+      properties:
+        ok:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: 에러 메시지
+          example: 잘못된 요청입니다
+
+    Diary:
+      type: object
+      description: |
+        일기 데이터 (diary 테이블)
+        title, content는 text 타입으로 nullable
+      required:
+        - diary_id
+        - user_id
+        - diary_type
+        - visibility
+      properties:
+        diary_id:
+          type: integer
+          description: 일기 고유 ID (PK)
+          example: 1
+        user_id:
+          type: integer
+          description: 작성자 ID (FK → users.user_id)
+          example: 123
+        diary_type:
+          type: string
+          enum:
+            - star
+            - worry
+          description: 일기 타입 (varchar - star=긍정, worry=부정)
+          example: star
+        title:
+          type: string
+          nullable: true
+          description: 일기 제목 (text, nullable)
+          example: 좋은 하루였어요
+        content:
+          type: string
+          nullable: true
+          description: 일기 내용 (text, nullable)
+          example: 오늘은 정말 행복한 하루였습니다.
+        visibility:
+          type: string
+          enum:
+            - private
+            - unlisted
+            - public
+          default: private
+          description: 공개 설정 (varchar)
+          example: private
+        created_at:
+          type: string
+          format: date-time
+          description: 생성 시간 (timestamptz)
+          example: "2024-01-15T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: 수정 시간 (timestamptz)
+          example: "2024-01-15T10:30:00Z"
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 삭제 시간 (timestamptz, nullable - soft delete)
+
+    Constellation:
+      type: object
+      description: |
+        별자리 정보 (constellation 테이블)
+        points, edges, path_index는 JSON 타입으로 저장됨
+      required:
+        - constellation_id
+        - star_code
+        - name_ko
+        - start_day
+        - end_day
+      properties:
+        constellation_id:
+          type: integer
+          description: 별자리 고유 ID (PK)
+          example: 1
+        star_code:
+          type: string
+          description: 별자리 영문 코드 (varchar)
+          example: capricorn
+        name_ko:
+          type: string
+          description: 별자리 한글 이름 (varchar)
+          example: 염소자리
+        start_day:
+          type: string
+          pattern: '^\d{2}-\d{2}$'
+          description: 시작 날짜 (bpchar - MM-DD)
+          example: "12-22"
+        end_day:
+          type: string
+          pattern: '^\d{2}-\d{2}$'
+          description: 종료 날짜 (bpchar - MM-DD)
+          example: "01-19"
+        primary_month:
+          type: string
+          pattern: '^\d{2}$'
+          nullable: true
+          description: 주요 월 (bpchar - MM, nullable)
+          example: "01"
+        points:
+          type: array
+          description: 별자리 좌표 배열 (json 타입)
+          items:
+            $ref: "#/components/schemas/Point"
+        edges:
+          type: array
+          nullable: true
+          description: 별자리 연결선 배열 (json 타입, nullable)
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              type: integer
+        path_index:
+          type: array
+          nullable: true
+          description: 그리기 경로 순서 배열 (json 타입, nullable)
+          items:
+            type: integer
+        created_at:
+          type: string
+          format: date-time
+          description: 생성 시간
+          example: "2025-09-06T07:43:21.752478Z"
+
+    Emotion:
+      type: object
+      description: |
+        감정 정보 (API 응답용 - emotion_id 제외됨)
+        원본 테이블: emotion (emotion_id, polarity, emotion, emotion_ko)
+      required:
+        - polarity
+        - emotion
+        - emotion_ko
+      properties:
+        polarity:
+          type: string
+          enum:
+            - positive
+            - negative
+          description: 감정 극성
+          example: positive
+        emotion:
+          type: string
+          description: 감정 영문 코드
+          example: happy
+        emotion_ko:
+          type: string
+          description: 감정 한글 이름
+          example: 행복
+
+    EmotionFull:
+      type: object
+      description: 감정 전체 정보 (emotion 테이블 - 내부용)
+      required:
+        - emotion_id
+        - polarity
+        - emotion
+        - emotion_ko
+      properties:
+        emotion_id:
+          type: integer
+          description: 감정 고유 ID (PK)
+          example: 1
+        polarity:
+          type: string
+          enum:
+            - positive
+            - negative
+          description: 감정 극성 (varchar)
+          example: positive
+        emotion:
+          type: string
+          description: 감정 영문 코드 (varchar)
+          example: happy
+        emotion_ko:
+          type: string
+          description: 감정 한글 이름 (text)
+          example: 행복
+
+    Tag:
+      type: object
+      description: |
+        태그 정보 (API 응답용 - id 제외됨)
+        원본 테이블: tag (id, name, name_ko, polarity, created_at)
+      required:
+        - name
+        - name_ko
+        - polarity
+      properties:
+        name:
+          type: string
+          description: 태그 영문명 (text)
+          example: family
+        name_ko:
+          type: string
+          description: 태그 한글명 (text)
+          example: 가족
+        polarity:
+          type: string
+          enum:
+            - positive
+            - negative
+          description: 태그 극성 (varchar)
+          example: positive
+        created_at:
+          type: string
+          format: date-time
+          description: 생성 시간
+          example: "2024-01-01T00:00:00Z"
+
+    TagFull:
+      type: object
+      description: 태그 전체 정보 (tag 테이블 - 내부용)
+      required:
+        - id
+        - name
+        - name_ko
+        - polarity
+      properties:
+        id:
+          type: integer
+          description: 태그 고유 ID (PK - 주의! tag_id가 아님)
+          example: 1
+        name:
+          type: string
+          description: 태그 영문명 (text)
+          example: family
+        name_ko:
+          type: string
+          description: 태그 한글명 (text)
+          example: 가족
+        polarity:
+          type: string
+          enum:
+            - positive
+            - negative
+          description: 태그 극성 (varchar)
+          example: positive
+        created_at:
+          type: string
+          format: date-time
+          description: 생성 시간
+
+    StarTemplate:
+      type: object
+      description: 별자리 템플릿 (좌표 및 경로 정보)
+      required:
+        - constellation_id
+        - star_code
+        - name_ko
+        - start_day
+        - end_day
+        - points
+      properties:
+        constellation_id:
+          type: integer
+          description: 별자리 ID
+          example: 1
+        star_code:
+          type: string
+          description: 별자리 영문 코드
+          example: capricorn
+        name_ko:
+          type: string
+          description: 별자리 한글 이름
+          example: 염소자리
+        start_day:
+          type: string
+          pattern: '^\d{2}-\d{2}$'
+          description: 시작 날짜 (MM-DD)
+          example: "12-22"
+        end_day:
+          type: string
+          pattern: '^\d{2}-\d{2}$'
+          description: 종료 날짜 (MM-DD)
+          example: "01-19"
+        primary_month:
+          type: string
+          pattern: '^\d{2}$'
+          description: 주요 월 (MM)
+          example: "01"
+        points:
+          type: array
+          description: 별자리를 구성하는 좌표점들
+          items:
+            $ref: "#/components/schemas/Point"
+          minItems: 1
+        edges:
+          type: array
+          description: 점들을 연결하는 선분 정보 [시작점 인덱스, 끝점 인덱스]
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              type: integer
+          example:
+            - [0, 1]
+            - [1, 2]
+            - [2, 3]
+        path_index:
+          type: array
+          description: 별자리를 그리는 경로 순서
+          items:
+            type: integer
+          example: [0, 1, 2, 3, 4, 5]
+        created_at:
+          type: string
+          format: date-time
+          description: 생성 시간
+          example: "2025-09-06T07:43:21.752478Z"
+
+    Point:
+      type: object
+      description: 2D 좌표점
+      required:
+        - x
+        - y
+      properties:
+        x:
+          type: number
+          description: X 좌표
+          example: 10.5
+        y:
+          type: number
+          description: Y 좌표
+          example: 60.3
+
+    # ========== 데이터베이스 테이블 스키마 ==========
+
+    User:
+      type: object
+      description: 사용자 기본 정보 (users 테이블)
+      required:
+        - user_id
+        - auth_user_id
+        - email
+        - signup_method
+      properties:
+        user_id:
+          type: integer
+          description: 사용자 고유 ID (PK)
+          example: 1
+        auth_user_id:
+          type: string
+          format: uuid
+          description: Supabase Auth 사용자 UUID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          description: 사용자 이메일 (citext)
+          example: user@example.com
+        password_hash:
+          type: string
+          nullable: true
+          description: 비밀번호 해시 (소셜 로그인 시 null)
+        signup_method:
+          type: string
+          enum:
+            - email
+            - google
+            - kakao
+          description: 가입 방법
+          example: email
+        created_at:
+          type: string
+          format: date-time
+          description: 생성 시간
+        updated_at:
+          type: string
+          format: date-time
+          description: 수정 시간
+
+    UserProfile:
+      type: object
+      description: 사용자 프로필 정보 (user_profile 테이블)
+      required:
+        - user_id
+        - nickname
+      properties:
+        user_id:
+          type: integer
+          description: 사용자 ID (PK, FK)
+          example: 1
+        nickname:
+          type: string
+          minLength: 2
+          description: 사용자 닉네임 (varchar)
+          example: 사용자123
+        created_at:
+          type: string
+          format: date-time
+          description: 생성 시간
+        updated_at:
+          type: string
+          format: date-time
+          description: 수정 시간
+
+    UserIdentity:
+      type: object
+      description: 소셜 로그인 연동 정보 (user_identity 테이블)
+      required:
+        - identity_id
+        - user_id
+        - provider
+        - provider_uid
+      properties:
+        identity_id:
+          type: integer
+          description: 식별자 고유 ID (PK)
+          example: 1
+        user_id:
+          type: integer
+          description: 사용자 ID (FK)
+          example: 1
+        provider:
+          type: string
+          enum:
+            - google
+            - kakao
+          description: 소셜 로그인 제공자
+          example: google
+        provider_uid:
+          type: string
+          description: 제공자별 고유 사용자 ID
+          example: "1234567890"
+        created_at:
+          type: string
+          format: date-time
+          description: 연동 시간
+
+    DiaryEmotion:
+      type: object
+      description: 일기-감정 연결 테이블 (diary_emotion 테이블)
+      required:
+        - diary_id
+        - emotion_id
+        - order_no
+        - intensity
+      properties:
+        diary_id:
+          type: integer
+          description: 일기 ID (PK, FK)
+          example: 1
+        emotion_id:
+          type: integer
+          description: 감정 ID (PK, FK)
+          example: 5
+        order_no:
+          type: integer
+          format: int16
+          description: 감정 표시 순서
+          example: 1
+        intensity:
+          type: integer
+          format: int16
+          minimum: 1
+          maximum: 5
+          description: 감정 강도 (1~5)
+          example: 4
+
+    DiaryTag:
+      type: object
+      description: 일기-태그 연결 테이블 (diary_tag 테이블)
+      required:
+        - diary_id
+        - tag_id
+      properties:
+        diary_id:
+          type: integer
+          description: 일기 ID (PK, FK)
+          example: 1
+        tag_id:
+          type: integer
+          description: 태그 ID (PK, FK)
+          example: 3
+
+    DiaryStar:
+      type: object
+      description: 일기-별 연결 테이블 (diary_star 테이블)
+      required:
+        - diary_id
+        - user_id
+        - star_id
+      properties:
+        diary_id:
+          type: integer
+          description: 일기 ID (PK, FK)
+          example: 1
+        user_id:
+          type: integer
+          description: 사용자 ID (FK)
+          example: 1
+        star_id:
+          type: integer
+          description: 별 ID (FK)
+          example: 25
+        assigned_at:
+          type: string
+          format: date-time
+          description: 별 배정 시간
+
+    ConstellationStar:
+      type: object
+      description: 별자리 개별 별 정보 (constellation_star 테이블)
+      required:
+        - star_id
+        - constellation_id
+        - seq
+        - x
+        - y
+        - size
+      properties:
+        star_id:
+          type: integer
+          description: 별 고유 ID (PK)
+          example: 1
+        constellation_id:
+          type: integer
+          description: 별자리 ID (FK)
+          example: 1
+        seq:
+          type: integer
+          format: int16
+          description: 별자리 내 순서
+          example: 0
+        x:
+          type: integer
+          format: int32
+          description: X 좌표 (정수)
+          example: 10
+        y:
+          type: integer
+          format: int32
+          description: Y 좌표 (정수)
+          example: 60
+        size:
+          type: integer
+          format: int16
+          description: 별 크기
+          example: 3
+
+    ConstellationEdge:
+      type: object
+      description: 별자리 연결선 정보 (constellation_edge 테이블)
+      required:
+        - constellation_id
+        - from_seq
+        - to_seq
+      properties:
+        constellation_id:
+          type: integer
+          description: 별자리 ID (PK, FK)
+          example: 1
+        from_seq:
+          type: integer
+          format: int16
+          description: 시작 별 순서 (PK)
+          example: 0
+        to_seq:
+          type: integer
+          format: int16
+          description: 끝 별 순서 (PK)
+          example: 1

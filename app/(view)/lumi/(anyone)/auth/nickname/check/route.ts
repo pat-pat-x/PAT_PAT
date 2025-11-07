@@ -6,14 +6,14 @@ import { cookies } from "next/headers";
 export const runtime = "nodejs";
 
 async function createAnonServerClient() {
-  const store = await cookies(); // 여기서 await
+  const store = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name: string) {
-          return store.get(name)?.value; // 동기 접근 OK
+          return store.get(name)?.value;
         },
         set() {},
         remove() {},

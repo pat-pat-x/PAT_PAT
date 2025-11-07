@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres.[YOUR_PROJECT_REF]:[YOUR_PASSWORD]@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres"
+      ]
+    },
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-notion"],
+      "env": {
+        "NOTION_API_KEY": "secret_YOUR_NOTION_INTEGRATION_TOKEN_HERE"
+      }
+    }
+  }
+}
+

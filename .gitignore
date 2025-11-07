@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# cursor settings (MCP tokens, personal rules, etc.)
+.cursor/mcp.json
+.cursor/mcp-*.json
+.cursor/rules/
+
 # vercel
 .vercel
 
