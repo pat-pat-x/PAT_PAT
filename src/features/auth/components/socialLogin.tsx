@@ -29,7 +29,7 @@ export default function SocialLogin() {
   };
 
   return (
-    <div>
+        <div className="flex flex-col w-full tems-center gap-5 ">
       <LoginButton
         title="카카오로 시작하기"
         onClickEvent={onKakao}
