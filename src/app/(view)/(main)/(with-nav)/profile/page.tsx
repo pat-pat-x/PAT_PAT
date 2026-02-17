@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import SocialLogout from "@/features/auth/components/socialLogout";
-import { useAuth } from "@/features/auth/hooks/useAuth";
-import { useUserProfile } from "@/features/profile/hooks/useUserProfile";
-import { useDiaryStats } from "@/features/home/hooks/useDiaryStats";
+import SocialLogout from '@/features/auth/components/socialLogout';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useDiaryStats } from '@/features/home/hooks/useDiaryStats';
+import { useUserProfile } from '@/features/profile/hooks/useUserProfile';
+import Link from 'next/link';
+import { useState } from 'react';
 
 export default function AccountPage() {
   const { user } = useAuth({ required: true });
@@ -75,7 +75,7 @@ export default function AccountPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-white/90 text-[15px] leading-snug truncate">
-                  안녕하세요, {profile?.nickname || "별빛 기록가"}님 ✨
+                  안녕하세요, {profile?.nickname || '별빛 기록가'}님 ✨
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {stats?.weeklyMood && (
@@ -110,18 +110,18 @@ export default function AccountPage() {
           {/* 계정 */}
           <GlassCard className="p-1.5">
             <SectionTitle>계정</SectionTitle>
-            <SettingRow label="이메일" desc={user?.email || "이메일 없음"} />
+            <SettingRow label="이메일" desc={user?.email || '이메일 없음'} />
             <SettingRow
               label="로그인 방식"
               right={
                 <div className="flex items-center gap-2">
-                  {user?.app_metadata?.provider === "kakao" && (
+                  {user?.app_metadata?.provider === 'kakao' && (
                     <IdP pill="KAKAO" />
                   )}
-                  {user?.app_metadata?.provider === "google" && (
+                  {user?.app_metadata?.provider === 'google' && (
                     <IdP pill="Google" />
                   )}
-                  {user?.app_metadata?.provider === "email" && (
+                  {user?.app_metadata?.provider === 'email' && (
                     <IdP pill="Email" />
                   )}
                   {!user?.app_metadata?.provider && <IdP pill="Email" />}
@@ -197,7 +197,7 @@ export default function AccountPage() {
           {/* 세션/위험영역 */}
           <div className="grid grid-cols-2 gap-3">
             <SocialLogout
-              next="/auth/signin"
+              next="/start"
               className="h-11 rounded-[12px] text-[13px] font-medium text-white/85 bg-white/6 border border-white/12 hover:bg-white/10 transition"
             />
             <button
@@ -209,7 +209,7 @@ export default function AccountPage() {
           </div>
 
           {/* 하단 여백(Safe area) */}
-          <div style={{ height: "max(16px, env(safe-area-inset-bottom))" }} />
+          <div style={{ height: 'max(16px, env(safe-area-inset-bottom))' }} />
         </div>
       </section>
     </main>
@@ -228,9 +228,9 @@ function GlassCard({
   return (
     <div
       className={[
-        "rounded-[16px] border border-white/12 bg-white/6 backdrop-blur",
-        className || "",
-      ].join(" ")}
+        'rounded-[16px] border border-white/12 bg-white/6 backdrop-blur',
+        className || '',
+      ].join(' ')}
     >
       {children}
     </div>
@@ -376,7 +376,7 @@ function ToggleRow({
   );
 }
 
-function IdP({ pill }: { pill: "KAKAO" | "Google" | "Email" }) {
+function IdP({ pill }: { pill: 'KAKAO' | 'Google' | 'Email' }) {
   return (
     <span className="px-2.5 h-7 inline-flex items-center rounded-full text-[12px] bg-white/6 text-white/80 border border-white/12">
       {pill}
