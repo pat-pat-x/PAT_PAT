@@ -2,13 +2,21 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  // 1. 초기 응답 생성
+  //  초기 응답 생성
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
+  // 1. API 라우트, 정적 파일, 이미지 등은 미들웨어 로직을 건너뜁니다.
+  if (
+    request.nextUrl.pathname.startsWith('/api/') ||
+    request.nextUrl.pathname.startsWith('/_next/') ||
+    request.nextUrl.pathname.includes('/favicon.ico')
+  ) {
+    return response;
+  }
   // 2. 미들웨어 전용 Supabase 클라이언트 설정
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

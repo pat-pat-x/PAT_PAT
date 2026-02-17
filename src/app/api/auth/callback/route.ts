@@ -4,10 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const AFTER_LOGIN = '/home';
 const SIGNIN = '/start';
-const SAFE_PATHS = new Set([AFTER_LOGIN, '/']); // 허용 리다이렉트 경로
+const SAFE_PATHS = new Set([AFTER_LOGIN]);
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const origin = url.origin;
+  console.error('[auth/callback]');
 
   try {
     const code = url.searchParams.get('code');

@@ -154,13 +154,16 @@ export default function EmailSignupPage() {
               </button>
             </div>
 
+            {otpError && (
+              <p className="mt-1 p-1 text-xs text-rose-300">{otpError}</p>
+            )}
             {otpSent && !otpVerified && (
-              <p className="mt-1 text-xs text-sky-200/80">
+              <p className="mt-1 p-1 text-xs text-sky-200/80">
                 이메일로 발송된 인증번호를 입력해주세요.
               </p>
             )}
             {otpVerified && (
-              <p className="mt-1 text-xs text-emerald-300">
+              <p className="mt-1 p-1 text-xs text-emerald-300">
                 인증이 완료되었습니다.
               </p>
             )}
@@ -194,7 +197,7 @@ export default function EmailSignupPage() {
               </div>
 
               {otpError && (
-                <p className="mt-1 text-xs text-rose-300">{otpError}</p>
+                <p className="mt-1 p-1 text-xs text-rose-300">{otpError}</p>
               )}
             </div>
           )}
@@ -220,7 +223,7 @@ export default function EmailSignupPage() {
             <p className={hintBase}>영문 소문자 + 숫자 필수, 기호 선택</p>
 
             {passwordError && (
-              <p className="mt-1 text-xs text-rose-300">{passwordError}</p>
+              <p className="mt-1 p-1 text-xs text-rose-300">{passwordError}</p>
             )}
           </div>
 
@@ -243,7 +246,7 @@ export default function EmailSignupPage() {
             />
 
             {password2Error && (
-              <p className="mt-1 text-xs text-rose-300">{password2Error}</p>
+              <p className="mt-1 p-1 text-xs text-rose-300">{password2Error}</p>
             )}
           </div>
         </form>
