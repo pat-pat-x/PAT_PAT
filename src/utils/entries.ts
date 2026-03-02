@@ -11,6 +11,8 @@ export type Entry = {
   diary_id?: number;
   diary_type?: "star" | "worry"; // 추가: diary_type
   tag_ids?: number[]; // 추가: 태그 ID 배열
+  emotion_polarity?: string; // "POSITIVE" | "NEGATIVE" | "UNSET"
+  emotion_intensity?: number | null; // 1~5
 };
 
 /**
@@ -33,7 +35,7 @@ export async function loadEntriesByRange(
     // diary 테이블에서 날짜 범위로 조회
     const { data: diaries, error } = await supabase
       .from("diary")
-      .select("diary_id, content, entry_date, created_at, updated_at")
+      .select("diary_id, content, entry_date, created_at, updated_at, emotion_polarity, emotion_intensity")
       .eq("auth_user_id", auth.user.id)
       .is("deleted_at", null)
       .gte("entry_date", startStr)
@@ -55,6 +57,8 @@ export async function loadEntriesByRange(
         createdAt: diary.created_at,
         updatedAt: diary.updated_at,
         diary_id: diary.diary_id,
+        emotion_polarity: diary.emotion_polarity ?? undefined,
+        emotion_intensity: diary.emotion_intensity ?? null,
       };
     });
 
