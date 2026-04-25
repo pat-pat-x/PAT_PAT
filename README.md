@@ -40,7 +40,7 @@ pnpm install
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publish_key
 ```
 
 ### 3. 개발 서버 실행
@@ -80,6 +80,7 @@ Cursor AI에서 Supabase와 Notion을 직접 제어하려면:
 모든 API는 표준화된 포맷을 따릅니다:
 
 **성공 응답:**
+
 ```json
 {
   "ok": true,
@@ -90,6 +91,7 @@ Cursor AI에서 Supabase와 Notion을 직접 제어하려면:
 ```
 
 **에러 응답:**
+
 ```json
 {
   "ok": false,
