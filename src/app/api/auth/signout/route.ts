@@ -1,31 +1,10 @@
 import { createServerSupabaseClient } from '@/utils/supabase/server';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 /**
  * 공통 처리 함수
  */
 async function signout(request: Request) {
-  const cookieStore = await cookies();
-
-  // const supabase = createServerClient(
-  //   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  //   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  //   {
-  //     cookies: {
-  //       get(name: string) {
-  //         return cookieStore.get(name)?.value ?? null;
-  //       },
-  //       set(name: string, value: string, options: any) {
-  //         cookieStore.set(name, value, options);
-  //       },
-  //       remove(name: string) {
-  //         cookieStore.delete(name);
-  //       },
-  //     },
-  //   }
-  // );
-
   // 세션/리프레시 토큰 무효화
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
