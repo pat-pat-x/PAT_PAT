@@ -1,10 +1,10 @@
-import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_DB_URL_SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_DB_URL_SUPABASE_SECRET_KEY!
 );
 
 type Pt = { x: number; y: number };
@@ -68,19 +68,19 @@ function daysBetweenInclusive(a: string, b: string) {
 
 async function main() {
   const { data: periods, error: pErr } = await supabase
-    .from("constellation_period")
-    .select("period_id, constellation_id, start_date, end_date");
+    .from('constellation_period')
+    .select('period_id, constellation_id, start_date, end_date');
 
   if (pErr) throw pErr;
-  if (!periods?.length) throw new Error("no constellation_period rows");
+  if (!periods?.length) throw new Error('no constellation_period rows');
 
   for (const p of periods) {
     const days = daysBetweenInclusive(p.start_date, p.end_date);
 
     const { data: master, error: mErr } = await supabase
-      .from("constellation_master")
-      .select("constellation_id, code, points, path_index")
-      .eq("constellation_id", p.constellation_id)
+      .from('constellation_master')
+      .select('constellation_id, code, points, path_index')
+      .eq('constellation_id', p.constellation_id)
       .single();
 
     if (mErr) throw mErr;
@@ -105,9 +105,9 @@ async function main() {
 
     // period별 기존 데이터 삭제 → 완전 재생성
     const { error: delErr } = await supabase
-      .from("constellation_period_day_point")
+      .from('constellation_period_day_point')
       .delete()
-      .eq("period_id", p.period_id);
+      .eq('period_id', p.period_id);
 
     if (delErr) throw delErr;
 
@@ -121,7 +121,7 @@ async function main() {
 
     // supabase insert는 너무 큰 배열이면 chunk 필요할 수 있음 (여긴 보통 31개 이하라 OK)
     const { error: insErr } = await supabase
-      .from("constellation_period_day_point")
+      .from('constellation_period_day_point')
       .insert(rows);
 
     if (insErr) throw insErr;
