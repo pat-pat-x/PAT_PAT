@@ -1,7 +1,7 @@
-"use server";
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+'use server';
+import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 
 /**
  * 서버 전용
@@ -13,7 +13,7 @@ export async function createServerSupabaseClient() {
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
         getAll() {
@@ -37,7 +37,7 @@ export async function createServerSupabaseClientReadOnly() {
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
         getAll() {
@@ -59,7 +59,7 @@ export async function createServerSupabaseClientReadOnly() {
 export async function createSupabaseAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_DB_URL_SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.SUPABASE_DB_URL_SUPABASE_SECRET_KEY!,
     {
       auth: {
         autoRefreshToken: false,
